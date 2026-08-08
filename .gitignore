@@ -62,5 +62,6 @@ frontend/build/
 .DS_Store
 Thumbs.db
 
-# Note: The data/ CSV files (resolved_tickets.csv, new_tickets.csv, orders_context.csv) 
+# Note: The data/sample_data/ CSV files (NEW_TI~1.CSV, ORDERS~1.CSV, RESOLV~1.CSV)
 # are part of the repository dataset and MUST NOT be ignored.
+
