@@ -1,0 +1,74 @@
+[
+  {
+    "ticket_id": "SIM-001",
+    "created_at": "2026-08-08T09:06:55.148396+00:00",
+    "description": "CHAI is not deliever",
+    "order": {
+      "order_id": "ORD-9900",
+      "items": 1,
+      "value_inr": 999,
+      "delivery_time_min": 24,
+      "delivery_status": "cancelled"
+    },
+    "precedents": [
+      {
+        "precedent_id": "H-1299",
+        "category": "order_late",
+        "description": "delivery way past promised time",
+        "resolution_action": "apology_no_action",
+        "resolution_note": "SLA breach < threshold",
+        "similarity_score": 0.0,
+        "csat": 5
+      },
+      {
+        "precedent_id": "H-1298",
+        "category": "order_late",
+        "description": "delivery way past promised time",
+        "resolution_action": "apology_no_action",
+        "resolution_note": "SLA breach < threshold",
+        "similarity_score": 0.0,
+        "csat": 3
+      },
+      {
+        "precedent_id": "H-1297",
+        "category": "order_late",
+        "description": "order took 45 minutes instead of 10",
+        "resolution_action": "coupon",
+        "resolution_note": "issued ₹50 coupon",
+        "similarity_score": 0.0,
+        "csat": 4
+      }
+    ],
+    "evaluation": {
+      "similarity_score": 0.0,
+      "exact_action_agreement": false,
+      "action_family_agreement": false,
+      "decision": "HUMAN_REVIEW",
+      "confidence_score": 0.1,
+      "selected_action": "human_review",
+      "suggested_action": "apology_no_action",
+      "reasoning": "Low similarity score (0.00 < 0.65); weak historical precedent match.",
+      "guardrails": {
+        "similarity_threshold_passed": false,
+        "cancelled_redelivery_blocked": false,
+        "refund_cap_enforced": false,
+        "escalation_precedent_detected": false
+      }
+    },
+    "simulated_action": {
+      "action": "queued_for_review",
+      "amount_inr": null,
+      "status": "QUEUED_FOR_HUMAN",
+      "note": "Ticket queued in Needs-Human lane for agent review.",
+      "is_simulated": true
+    },
+    "draft_reply": {
+      "recipient": "Customer",
+      "subject": "Your support request #SIM-001 is under review",
+      "body": "Hi there, thank you for reaching out regarding order #ORD-9900. We are reviewing your request 'CHAI is not deliever' with our senior support team to ensure we provide the best possible resolution. We will update you shortly.",
+      "explanation": "Routed to HUMAN_REVIEW due to conflicting historical precedent actions. System strictly queues tickets when past resolutions disagree rather than guessing.",
+      "generation_source": "fallback"
+    },
+    "order_id": "ORD-9900"
+  }
+]

@@ -49,5 +49,11 @@ class DecisionLogService:
         return None
 
 
+    def clear_logs(self) -> None:
+        """Clears in-memory decision logs (for test resets)."""
+        self._logs.clear()
+
+
 # Global singleton instance
 log_service = DecisionLogService()
+

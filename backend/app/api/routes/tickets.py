@@ -96,6 +96,23 @@ def evaluate_for_list_item(ticket_dict: dict) -> TicketListItem:
     description = str(ticket_dict.get("description", ""))
 
     order = order_context_service.get_order(order_id)
+
+    # If already evaluated and persisted, extract directly
+    if isinstance(ticket_dict.get("evaluation"), dict):
+        eval_dict = ticket_dict["evaluation"]
+        order_dict = ticket_dict.get("order") or {}
+        return TicketListItem(
+            ticket_id=ticket_id,
+            created_at=created_at,
+            order_id=order_id,
+            description=description,
+            decision=str(eval_dict.get("decision", "HUMAN_REVIEW")),
+            confidence_score=float(eval_dict.get("confidence_score", 0.0)),
+            selected_action=str(eval_dict.get("selected_action", "human_review")),
+            suggested_action=eval_dict.get("suggested_action"),
+            delivery_status=order_dict.get("delivery_status") or (order.delivery_status if order else None)
+        )
+
     precedents = similarity_service.get_top_k_precedents(description, k=3)
     evaluation = decision_service.evaluate(description, precedents, order)
 
@@ -147,7 +164,6 @@ def list_tickets(lane: Optional[str] = Query(None, description="Filter by lane: 
     return ticket_items
 
 
-
 @router.get("/{ticket_id}", response_model=TicketDetailResponse)
 def get_ticket_detail(ticket_id: str):
     """
@@ -157,6 +173,14 @@ def get_ticket_detail(ticket_id: str):
     raw = data_service.get_new_ticket_by_id(ticket_id)
     if not raw:
         raise HTTPException(status_code=404, detail=f"Ticket '{ticket_id}' not found in incoming dataset.")
+    
+    # If this is a persisted simulated ticket with full details already computed, restore directly
+    if isinstance(raw.get("evaluation"), dict) and isinstance(raw.get("draft_reply"), dict):
+        try:
+            return TicketDetailResponse(**raw)
+        except Exception:
+            pass
+
     return process_ticket(raw)
 
 
@@ -208,7 +232,13 @@ def simulate_ticket(request: SimulateTicketRequest):
     simulated_raw = data_service.add_simulated_ticket(description, order_id)
 
     # Run existing end-to-end evaluation pipeline
-    return process_ticket(simulated_raw)
+    response = process_ticket(simulated_raw)
+
+    # Persist full evaluated detail
+    data_service.save_simulated_ticket_detail(response.ticket_id, response.model_dump())
+
+    return response
+
 
 
 @router.post("/{ticket_id}/resolve", response_model=SimulatedAction)

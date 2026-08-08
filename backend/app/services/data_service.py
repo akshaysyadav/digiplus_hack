@@ -7,11 +7,21 @@ Responsible for:
 - Providing fast lookup methods for tickets, orders, and resolved precedent datasets
 """
 
+import os
+import json
+import logging
 from datetime import datetime, timezone
 import pandas as pd
 from typing import List, Dict, Optional
-from app.core.config import RESOLVED_TICKETS_CSV, NEW_TICKETS_CSV, ORDERS_CONTEXT_CSV
+from app.core.config import (
+    RESOLVED_TICKETS_CSV,
+    NEW_TICKETS_CSV,
+    ORDERS_CONTEXT_CSV,
+    SIMULATED_TICKETS_JSON
+)
 from app.models.schemas import RawNewTicket, OrderContext, PrecedentMatch
+
+logger = logging.getLogger(__name__)
 
 
 class DataService:
@@ -23,10 +33,43 @@ class DataService:
         self.load_all_data()
 
     def load_all_data(self) -> None:
-        """Loads and caches all three datasets into memory."""
+        """Loads CSV datasets and restores persisted simulated tickets into memory."""
         self._resolved_df = pd.read_csv(RESOLVED_TICKETS_CSV)
         self._new_tickets_df = pd.read_csv(NEW_TICKETS_CSV)
         self._orders_df = pd.read_csv(ORDERS_CONTEXT_CSV)
+        self._load_simulated_tickets()
+
+    def _load_simulated_tickets(self) -> None:
+        """Safely loads simulated tickets from local JSON storage without crashing on missing or corrupted files."""
+        self._simulated_tickets = []
+        if not SIMULATED_TICKETS_JSON.exists():
+            return
+
+        try:
+            with open(SIMULATED_TICKETS_JSON, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    self._simulated_tickets = data
+                else:
+                    logger.warning(
+                        f"Warning: {SIMULATED_TICKETS_JSON} format invalid (expected list), falling back to empty collection."
+                    )
+        except Exception as ex:
+            logger.warning(
+                f"Warning: Failed to load simulated tickets from {SIMULATED_TICKETS_JSON}: {ex}. Starting with empty collection."
+            )
+            self._simulated_tickets = []
+
+    def _save_simulated_tickets(self) -> None:
+        """Atomically saves simulated tickets to local JSON storage."""
+        try:
+            SIMULATED_TICKETS_JSON.parent.mkdir(parents=True, exist_ok=True)
+            temp_file = SIMULATED_TICKETS_JSON.with_suffix(".tmp")
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump(self._simulated_tickets, f, indent=2, ensure_ascii=False)
+            os.replace(temp_file, SIMULATED_TICKETS_JSON)
+        except Exception as ex:
+            logger.error(f"Error saving simulated tickets to {SIMULATED_TICKETS_JSON}: {ex}")
 
     @property
     def resolved_tickets_df(self) -> pd.DataFrame:
@@ -47,8 +90,19 @@ class DataService:
         return self._orders_df
 
     def add_simulated_ticket(self, description: str, order_id: str) -> Dict:
-        """Creates and stores a simulated ticket in memory for real-time demo."""
-        sim_id = f"SIM-{str(len(self._simulated_tickets) + 1).zfill(3)}"
+        """Creates, numbers sequentially, and persists a simulated ticket."""
+        max_num = 0
+        for t in self._simulated_tickets:
+            tid = str(t.get("ticket_id", ""))
+            if tid.startswith("SIM-"):
+                try:
+                    num = int(tid.split("-")[1])
+                    if num > max_num:
+                        max_num = num
+                except (ValueError, IndexError):
+                    pass
+
+        sim_id = f"SIM-{str(max_num + 1).zfill(3)}"
         ticket_dict = {
             "ticket_id": sim_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -56,11 +110,36 @@ class DataService:
             "description": description.strip()
         }
         self._simulated_tickets.append(ticket_dict)
+        self._save_simulated_tickets()
         return ticket_dict
 
-    def clear_simulated_tickets(self) -> None:
-        """Clears in-memory simulated tickets (for test resets)."""
+    def save_simulated_ticket_detail(self, ticket_id: str, detail_dict: dict) -> None:
+        """Updates and persists complete evaluation detail for a simulated ticket."""
+        if "order_id" not in detail_dict:
+            order_info = detail_dict.get("order")
+            if isinstance(order_info, dict):
+                detail_dict["order_id"] = order_info.get("order_id", "")
+            elif hasattr(order_info, "order_id"):
+                detail_dict["order_id"] = getattr(order_info, "order_id", "")
+
+        for i, t in enumerate(self._simulated_tickets):
+            if t.get("ticket_id") == ticket_id:
+                if "order_id" not in detail_dict and "order_id" in t:
+                    detail_dict["order_id"] = t["order_id"]
+                self._simulated_tickets[i] = detail_dict
+                self._save_simulated_tickets()
+                return
+        self._simulated_tickets.append(detail_dict)
+        self._save_simulated_tickets()
+
+    def clear_simulated_tickets(self, delete_storage: bool = True) -> None:
+        """Clears in-memory collection and removes persistent test file if requested."""
         self._simulated_tickets.clear()
+        if delete_storage and SIMULATED_TICKETS_JSON.exists():
+            try:
+                SIMULATED_TICKETS_JSON.unlink()
+            except Exception:
+                pass
 
     def get_all_new_tickets(self) -> List[Dict]:
         """Returns all incoming tickets (CSV datasets + in-memory simulated tickets)."""
@@ -74,9 +153,13 @@ class DataService:
             return matches.iloc[0].to_dict()
         
         for sim_ticket in self._simulated_tickets:
-            if sim_ticket["ticket_id"] == ticket_id:
-                return sim_ticket
+            if sim_ticket.get("ticket_id") == ticket_id:
+                res = dict(sim_ticket)
+                if "order_id" not in res and isinstance(res.get("order"), dict):
+                    res["order_id"] = res["order"].get("order_id", "")
+                return res
         return None
+
 
     def get_order_context(self, order_id: str) -> Optional[OrderContext]:
         """Lookup order context by order_id."""

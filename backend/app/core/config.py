@@ -22,6 +22,8 @@ def get_dataset_file(pattern: str, fallback_name: str) -> Path:
 RESOLVED_TICKETS_CSV = get_dataset_file("*RESOLV*", "resolved_tickets.csv")
 NEW_TICKETS_CSV = get_dataset_file("*NEW_TI*", "new_tickets.csv")
 ORDERS_CONTEXT_CSV = get_dataset_file("*ORDERS*", "orders_context.csv")
+SIMULATED_TICKETS_JSON = BASE_DIR.parent / "data" / "simulated_tickets.json"
+
 
 # Evaluation Thresholds & Weights
 SIMILARITY_THRESHOLD = 0.65  # Safety gate for out-of-distribution tickets

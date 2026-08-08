@@ -74,7 +74,7 @@
 
 ### 3. Simulate New Ticket (Real-Time Ingestion & Evaluation)
 * **Endpoint**: `POST /api/tickets/simulate`
-* **Description**: Accepts a new customer issue and verified `order_id`, creates an in-memory ticket (e.g. `SIM-001`), and immediately runs it through the complete decision pipeline.
+* **Description**: Accepts a new customer issue and verified `order_id`, creates a persistent simulated ticket (persisted to `data/simulated_tickets.json`), and immediately runs it through the complete decision pipeline.
 * **Request Body `application/json`**:
 ```json
 {
