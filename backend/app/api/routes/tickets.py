@@ -5,7 +5,7 @@ Provides endpoints for:
 - Listing incoming tickets (with optional lane filtering: all, auto_resolve, human_review)
 - Fetching full ticket details with order context, precedents, evaluation, simulated action, and draft reply
 - Evaluating a ticket end-to-end
-- Resolving/approving simulated actions on a ticket
+- Resolving/approving simulated actions on a ticket (strictly guards against resolving HUMAN_REVIEW tickets)
 """
 
 from fastapi import APIRouter, HTTPException, Query
@@ -87,6 +87,16 @@ def list_tickets(lane: Optional[str] = Query(None, description="Filter by lane: 
     Returns list of all incoming tickets evaluated against the decision engine.
     Supports filtering by lane: 'auto_resolve' or 'human_review'.
     """
+    VALID_LANES = ["all", "auto_resolve", "autoresolve", "auto", "human_review", "humanreview", "needs_human", "human"]
+    
+    if lane:
+        normalized_lane = lane.lower().strip()
+        if normalized_lane not in VALID_LANES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid lane filter '{lane}'. Allowed values: 'all', 'auto_resolve', 'human_review'."
+            )
+
     all_raw_tickets = data_service.get_all_new_tickets()
     ticket_items: List[TicketListItem] = []
 
@@ -144,11 +154,22 @@ def evaluate_ticket(ticket_id: str):
 def resolve_ticket(ticket_id: str):
     """
     Simulates executing the resolution action for a ticket.
-    If the ticket was evaluated as HUMAN_REVIEW or BLOCKED, action execution is constrained.
+    Strict Guardrail: If the ticket was evaluated as HUMAN_REVIEW, automated resolution
+    execution is blocked with a 400 Bad Request to protect business operations.
     """
     raw = data_service.get_new_ticket_by_id(ticket_id)
     if not raw:
-        raise HTTPException(status_code=404, detail=f"Ticket '{ticket_id}' not found.")
+        raise HTTPException(status_code=404, detail=f"Ticket '{ticket_id}' not found in incoming dataset.")
     
     detail = process_ticket(raw)
+    
+    if detail.evaluation.decision == "HUMAN_REVIEW":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot auto-resolve ticket '{ticket_id}'. Ticket decision is 'HUMAN_REVIEW' "
+                f"({detail.evaluation.reasoning}). Manual intervention is required."
+            )
+        )
+    
     return detail.simulated_action

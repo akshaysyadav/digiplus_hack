@@ -1,10 +1,12 @@
 """
 Application Configuration & Settings
 
-Defines dataset paths, similarity thresholds, and configuration constants.
+Defines dataset paths, similarity thresholds, environment variables, and configuration constants.
 """
 
+import os
 from pathlib import Path
+from typing import List
 
 # Base Paths
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -32,3 +34,14 @@ WEIGHT_VALIDITY = 0.10
 
 # Fixed simulated policy values
 COUPON_AMOUNT_INR = 50
+
+# Server & Network Configuration (Supports cloud environments like Render/Railway/AWS)
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", "8000"))
+
+# CORS Configuration
+raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
+if raw_origins.strip() == "*":
+    ALLOWED_ORIGINS: List[str] = ["*"]
+else:
+    ALLOWED_ORIGINS: List[str] = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]

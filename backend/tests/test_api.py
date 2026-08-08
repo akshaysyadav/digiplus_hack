@@ -2,6 +2,7 @@
 API Endpoint Integration Tests
 """
 
+import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -48,6 +49,12 @@ def test_list_tickets_lane_filter():
     assert len(auto_data) + len(human_data) == 30
 
 
+def test_list_tickets_invalid_lane():
+    response = client.get("/api/tickets?lane=unknown_lane")
+    assert response.status_code == 400
+    assert "Invalid lane filter" in response.json()["detail"]
+
+
 def test_get_ticket_detail():
     response = client.get("/api/tickets/N-005")
     assert response.status_code == 200
@@ -58,6 +65,12 @@ def test_get_ticket_detail():
     assert data["evaluation"]["decision"] == "AUTO_RESOLVE"
     assert data["simulated_action"]["status"] == "SIMULATED_SUCCESS"
     assert "explanation" in data["draft_reply"]
+
+
+def test_get_ticket_detail_not_found():
+    response = client.get("/api/tickets/INVALID-999")
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
 
 
 def test_evaluate_and_decision_log():
@@ -76,3 +89,19 @@ def test_evaluate_and_decision_log():
     n002_log = next((l for l in logs if l["ticket_id"] == "N-002"), None)
     assert n002_log is not None
     assert n002_log["decision"] == "HUMAN_REVIEW"
+
+
+def test_resolve_auto_resolve_ticket():
+    # N-005 is AUTO_RESOLVE
+    resp = client.post("/api/tickets/N-005/resolve")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "SIMULATED_SUCCESS"
+    assert data["action"] == "redelivery"
+
+
+def test_resolve_human_review_ticket_blocked():
+    # N-002 is HUMAN_REVIEW -> should be blocked with 400
+    resp = client.post("/api/tickets/N-002/resolve")
+    assert resp.status_code == 400
+    assert "Cannot auto-resolve" in resp.json()["detail"]

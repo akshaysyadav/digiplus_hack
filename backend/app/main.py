@@ -4,8 +4,10 @@ Zepto Support Ticket Manager — Main Entry Point
 FastAPI application declaration with CORS middleware and API routes.
 """
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import ALLOWED_ORIGINS, HOST, PORT
 from app.api.routes import api_router
 
 app = FastAPI(
@@ -14,10 +16,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Configuration for React Frontend
+# CORS Configuration for React Frontend & Local/Prod origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins for local hackathon development & deployment
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,3 +46,6 @@ def health_check():
 
 # Mount all API routes under /api
 app.include_router(api_router)
+
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host=HOST, port=PORT, reload=False)
