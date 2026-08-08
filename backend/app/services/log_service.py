@@ -23,7 +23,8 @@ class DecisionLogService:
             order_id=ticket_detail.order.order_id if ticket_detail.order else "N/A",
             decision=ticket_detail.evaluation.decision,
             confidence_score=ticket_detail.evaluation.confidence_score,
-            selected_action=ticket_detail.simulated_action.action,
+            selected_action=ticket_detail.evaluation.selected_action,
+            suggested_action=ticket_detail.evaluation.suggested_action,
             reasoning=ticket_detail.evaluation.reasoning,
             top_precedent_ids=[p.precedent_id for p in ticket_detail.precedents],
             simulated_action_status=ticket_detail.simulated_action.status

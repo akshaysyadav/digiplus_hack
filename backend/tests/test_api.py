@@ -63,8 +63,32 @@ def test_get_ticket_detail():
     assert data["order"]["order_id"] == "ORD-9905"
     assert len(data["precedents"]) == 3
     assert data["evaluation"]["decision"] == "AUTO_RESOLVE"
+    assert data["evaluation"]["selected_action"] == "redelivery"
+    assert data["evaluation"]["suggested_action"] == "redelivery"
     assert data["simulated_action"]["status"] == "SIMULATED_SUCCESS"
     assert "explanation" in data["draft_reply"]
+    assert data["draft_reply"]["generation_source"] in ["gemini", "fallback"]
+
+
+def test_get_ticket_detail_human_review_n029():
+    response = client.get("/api/tickets/N-029")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ticket_id"] == "N-029"
+    assert data["evaluation"]["decision"] == "HUMAN_REVIEW"
+    assert data["evaluation"]["selected_action"] == "human_review"
+    assert data["evaluation"]["suggested_action"] == "redelivery"
+
+
+def test_get_ticket_detail_cancelled_guardrail_n002():
+    response = client.get("/api/tickets/N-002")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ticket_id"] == "N-002"
+    assert data["evaluation"]["decision"] == "HUMAN_REVIEW"
+    assert data["evaluation"]["selected_action"] == "human_review"
+    assert data["evaluation"]["suggested_action"] is None
+    assert data["evaluation"]["guardrails"]["cancelled_redelivery_blocked"] is True
 
 
 def test_get_ticket_detail_not_found():
@@ -79,6 +103,8 @@ def test_evaluate_and_decision_log():
     assert eval_resp.status_code == 200
     eval_data = eval_resp.json()
     assert eval_data["evaluation"]["decision"] == "HUMAN_REVIEW"
+    assert eval_data["evaluation"]["selected_action"] == "human_review"
+    assert eval_data["evaluation"]["suggested_action"] is None
     assert eval_data["evaluation"]["guardrails"]["cancelled_redelivery_blocked"] is True
 
     # Check decision log
@@ -89,6 +115,8 @@ def test_evaluate_and_decision_log():
     n002_log = next((l for l in logs if l["ticket_id"] == "N-002"), None)
     assert n002_log is not None
     assert n002_log["decision"] == "HUMAN_REVIEW"
+    assert n002_log["selected_action"] == "human_review"
+    assert n002_log["suggested_action"] is None
 
 
 def test_resolve_auto_resolve_ticket():
@@ -105,3 +133,4 @@ def test_resolve_human_review_ticket_blocked():
     resp = client.post("/api/tickets/N-002/resolve")
     assert resp.status_code == 400
     assert "Cannot auto-resolve" in resp.json()["detail"]
+

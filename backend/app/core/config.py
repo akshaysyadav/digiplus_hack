@@ -39,9 +39,34 @@ COUPON_AMOUNT_INR = 50
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 
+# Auto-load .env file from workspace root or backend dir if present
+def _load_env():
+    for env_path in [BASE_DIR.parent / ".env", BASE_DIR / ".env"]:
+        if env_path.exists():
+            try:
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            k = k.strip()
+                            v = v.strip().strip("'\"")
+                            if k and k not in os.environ:
+                                os.environ[k] = v
+                break
+            except Exception:
+                pass
+
+_load_env()
+
+# Gemini Generative AI Configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip()
+
 # CORS Configuration
 raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
 if raw_origins.strip() == "*":
     ALLOWED_ORIGINS: List[str] = ["*"]
 else:
     ALLOWED_ORIGINS: List[str] = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+

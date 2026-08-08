@@ -50,6 +50,18 @@
     "decision": "AUTO_RESOLVE",
     "confidence_score": 1.0,
     "selected_action": "redelivery",
+    "suggested_action": "redelivery",
+    "delivery_status": "delivered"
+  },
+  {
+    "ticket_id": "N-029",
+    "created_at": "2026-08-07T18:10:00",
+    "order_id": "ORD-9929",
+    "description": "got salted butter instead of unsalted",
+    "decision": "HUMAN_REVIEW",
+    "confidence_score": 0.7,
+    "selected_action": "human_review",
+    "suggested_action": "redelivery",
     "delivery_status": "delivered"
   }
 ]
@@ -61,7 +73,7 @@
 * **Endpoints**: 
   * `GET /api/tickets/{ticket_id}`
   * `POST /api/tickets/{ticket_id}/evaluate`
-* **Response `200 OK`**:
+* **Response `200 OK` (Auto-Resolve Example — N-005)**:
 ```json
 {
   "ticket_id": "N-005",
@@ -110,6 +122,7 @@
     "decision": "AUTO_RESOLVE",
     "confidence_score": 1.0,
     "selected_action": "redelivery",
+    "suggested_action": "redelivery",
     "reasoning": "High similarity (1.00) with unanimous precedent agreement (3/3: redelivery). All order context guardrails passed.",
     "guardrails": {
       "similarity_threshold_passed": true,
@@ -129,7 +142,54 @@
     "recipient": "Customer",
     "subject": "Your replacement items for Order #ORD-9905 are on their way",
     "body": "Hi there, we sincerely apologize that items were missing or incorrect in your order #ORD-9905. We have arranged an immediate priority redelivery at no extra cost to you. Our delivery partner will be at your doorstep shortly.",
-    "explanation": "Auto-resolved via REDELIVERY based on unanimous historical precedent agreement (3/3). Order #ORD-9905 is active/delivered, satisfying all safety guardrails."
+    "explanation": "Auto-resolved via REDELIVERY based on unanimous historical precedent agreement (3/3). Order #ORD-9905 is active/delivered, satisfying all safety guardrails.",
+    "generation_source": "gemini"
+  }
+}
+```
+
+* **Response `200 OK` (Human-Review Cancelled Order Guardrail Example — N-002)**:
+```json
+{
+  "ticket_id": "N-002",
+  "created_at": "2026-08-07T13:45:00",
+  "description": "milk packet missing from my order",
+  "order": {
+    "order_id": "ORD-9902",
+    "items": 5,
+    "value_inr": 999,
+    "delivery_time_min": 42,
+    "delivery_status": "cancelled"
+  },
+  "evaluation": {
+    "similarity_score": 1.0,
+    "exact_action_agreement": true,
+    "action_family_agreement": true,
+    "decision": "HUMAN_REVIEW",
+    "confidence_score": 0.9,
+    "selected_action": "human_review",
+    "suggested_action": null,
+    "reasoning": "Historical precedents suggest redelivery, but redelivery is blocked because Order #ORD-9902 is cancelled. Human review is required.",
+    "guardrails": {
+      "similarity_threshold_passed": true,
+      "cancelled_redelivery_blocked": true,
+      "refund_cap_enforced": false,
+      "escalation_precedent_detected": false
+    }
+  },
+  "simulated_action": {
+    "action": "blocked_redelivery",
+    "amount_inr": null,
+    "status": "BLOCKED",
+    "note": "Redelivery blocked because order is cancelled. Queued for human review.",
+    "is_simulated": true
+  },
+  "draft_reply": {
+    "recipient": "Customer",
+    "subject": "Your support request #N-002 is under review",
+    "body": "Hi there, thank you for reaching out regarding order #ORD-9902. We are reviewing your request 'milk packet missing from my order' with our senior support team to ensure we provide the best possible resolution. We will update you shortly.",
+    "explanation": "Routed to HUMAN_REVIEW because Order #ORD-9902 is cancelled. Automated redelivery is blocked on cancelled orders to prevent inventory loss.",
+    "generation_source": "gemini"
   }
 }
 ```
@@ -163,6 +223,7 @@
     "decision": "AUTO_RESOLVE",
     "confidence_score": 1.0,
     "selected_action": "redelivery",
+    "suggested_action": "redelivery",
     "reasoning": "High similarity (1.00) with unanimous precedent agreement (3/3: redelivery). All order context guardrails passed.",
     "top_precedent_ids": ["H-1000", "H-1007", "H-1038"],
     "simulated_action_status": "SIMULATED_SUCCESS"
@@ -178,9 +239,10 @@ All schemas are declared in `backend/app/models/schemas.py`:
 - `OrderContext`: Order status and pricing context.
 - `PrecedentMatch`: Historical ticket match with similarity score and CSAT.
 - `GuardrailResults`: Explicit boolean flags for guardrails.
-- `EvaluationResult`: Decision, similarity score, exact & family agreement flags, confidence, and reasoning.
+- `EvaluationResult`: Decision, similarity score, exact & family agreement flags, confidence, `selected_action`, `suggested_action` (None if blocked/tied), and reasoning.
 - `SimulatedAction`: Simulated action payload clearly designated as simulated.
-- `DraftReply`: Customer-facing draft reply and "Why this action?" explanation.
+- `DraftReply`: Customer-facing draft reply, "Why this action?" explanation, and `generation_source` ("gemini" | "fallback").
 - `TicketDetailResponse`: Consolidated envelope for ticket detail view.
-- `TicketListItem`: Summary item for dashboard lane lists.
-- `DecisionLogEntry`: Audit trail entry.
+- `TicketListItem`: Summary item for dashboard lane lists including `suggested_action`.
+- `DecisionLogEntry`: Audit trail entry including `suggested_action`.
+

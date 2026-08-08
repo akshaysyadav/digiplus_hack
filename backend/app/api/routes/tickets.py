@@ -61,7 +61,8 @@ def process_ticket(ticket_dict: dict) -> TicketDetailResponse:
         description=description,
         order=order,
         evaluation=evaluation,
-        simulated_action=simulated_action
+        simulated_action=simulated_action,
+        precedents=precedents
     )
 
     response = TicketDetailResponse(
@@ -119,7 +120,8 @@ def list_tickets(lane: Optional[str] = Query(None, description="Filter by lane: 
                 description=detail.description,
                 decision=detail.evaluation.decision,
                 confidence_score=detail.evaluation.confidence_score,
-                selected_action=detail.simulated_action.action,
+                selected_action=detail.evaluation.selected_action,
+                suggested_action=detail.evaluation.suggested_action,
                 delivery_status=detail.order.delivery_status if detail.order else None
             )
         )

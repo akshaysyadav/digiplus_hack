@@ -6,13 +6,15 @@ Responsible for:
 - Providing clear "Why this action?" explanations for human agents and audit trails
 """
 
-from typing import Optional
+from typing import Optional, List
 from app.models.schemas import (
     DraftReply,
     EvaluationResult,
     OrderContext,
-    SimulatedAction
+    SimulatedAction,
+    PrecedentMatch
 )
+from app.services.gemini_service import gemini_service
 
 
 class ReplyService:
@@ -22,11 +24,34 @@ class ReplyService:
         description: str,
         order: Optional[OrderContext],
         evaluation: EvaluationResult,
-        simulated_action: SimulatedAction
+        simulated_action: SimulatedAction,
+        precedents: Optional[List[PrecedentMatch]] = None
     ) -> DraftReply:
         """
         Generates a structured customer draft reply and an explanation of why this action was chosen.
+        First attempts natural language generation via Gemini if configured; seamlessly falls back
+        to deterministic templates if Gemini is unavailable, unconfigured, or returns malformed output.
         """
+        # 1. Attempt Gemini Generative AI layer
+        gemini_output = gemini_service.generate_reply_and_explanation(
+            ticket_id=ticket_id,
+            description=description,
+            order=order,
+            evaluation=evaluation,
+            simulated_action=simulated_action,
+            precedents=precedents
+        )
+        if gemini_output is not None:
+            gemini_subject, gemini_body, gemini_explanation = gemini_output
+            return DraftReply(
+                recipient="Customer",
+                subject=gemini_subject,
+                body=gemini_body,
+                explanation=gemini_explanation,
+                generation_source="gemini"
+            )
+
+        # 2. Deterministic Fallback Generation
         order_id = order.order_id if order else "N/A"
         decision = evaluation.decision
         action = simulated_action.action
@@ -35,7 +60,7 @@ class ReplyService:
             if action == "redelivery":
                 subject = f"Your replacement items for Order #{order_id} are on their way"
                 body = (
-                    f"Hi there, we sincerely apologize that items were missing or incorrect in your order #{order_id}. "
+                    f"Hi there, we sincerely apologize for the issue ('{description}') with your order #{order_id}. "
                     f"We have arranged an immediate priority redelivery at no extra cost to you. "
                     f"Our delivery partner will be at your doorstep shortly."
                 )
@@ -48,7 +73,7 @@ class ReplyService:
                 amount_str = f"₹{simulated_action.amount_inr}" if simulated_action.amount_inr else "the full order amount"
                 subject = f"Refund processed for Order #{order_id}"
                 body = (
-                    f"Hi there, we are very sorry to hear about the issue with your order #{order_id}. "
+                    f"Hi there, we are very sorry to hear about the issue ('{description}') with your order #{order_id}. "
                     f"We have processed a full refund of {amount_str} back to your original payment method. "
                     f"It should reflect in your account within 3-5 business days."
                 )
@@ -60,7 +85,7 @@ class ReplyService:
             elif action == "coupon":
                 subject = f"A special credit for Order #{order_id}"
                 body = (
-                    f"Hi there, thank you for contacting Zepto Support regarding order #{order_id}. "
+                    f"Hi there, thank you for contacting Zepto Support regarding '{description}' for order #{order_id}. "
                     f"We apologize for the inconvenience and have credited a ₹50 discount coupon to your wallet "
                     f"for your next order."
                 )
@@ -71,7 +96,7 @@ class ReplyService:
             elif action == "apology_no_action":
                 subject = f"Apology regarding your delivery time for Order #{order_id}"
                 body = (
-                    f"Hi there, thank you for reaching out. We sincerely apologize for the delay with order #{order_id}. "
+                    f"Hi there, thank you for reaching out regarding '{description}' for order #{order_id}. "
                     f"Our operations team has been notified to ensure faster turnaround in your area for upcoming orders."
                 )
                 explanation = (
@@ -81,7 +106,7 @@ class ReplyService:
             else:
                 subject = f"Update regarding your Order #{order_id}"
                 body = (
-                    f"Hi there, thank you for contacting us regarding order #{order_id}. "
+                    f"Hi there, thank you for contacting us regarding '{description}' for order #{order_id}. "
                     f"We have taken action to resolve your issue: {simulated_action.note}."
                 )
                 explanation = f"Auto-resolved based on high similarity and unanimous precedent agreement for {action}."
@@ -126,9 +151,11 @@ class ReplyService:
             recipient="Customer",
             subject=subject,
             body=body,
-            explanation=explanation
+            explanation=explanation,
+            generation_source="fallback"
         )
 
 
 # Global singleton instance
 reply_service = ReplyService()
+

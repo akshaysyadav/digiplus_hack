@@ -8,6 +8,7 @@ Responsible for:
 - Making the final decision: AUTO_RESOLVE vs HUMAN_REVIEW
 """
 
+from collections import Counter
 from typing import List, Tuple, Optional
 from app.models.schemas import (
     PrecedentMatch,
@@ -49,6 +50,7 @@ class DecisionService:
     ) -> EvaluationResult:
         """
         Executes deterministic evaluation pipeline on precedents and order context.
+        Computes both selected_action (executable) and suggested_action (advisory for human lane).
         """
         if not precedents:
             return EvaluationResult(
@@ -58,6 +60,7 @@ class DecisionService:
                 decision="HUMAN_REVIEW",
                 confidence_score=0.0,
                 selected_action="human_review",
+                suggested_action=None,
                 reasoning="No historical precedents found.",
                 guardrails=GuardrailResults(
                     similarity_threshold_passed=False,
@@ -68,7 +71,7 @@ class DecisionService:
             )
 
         top1_similarity = precedents[0].similarity_score
-        prec_actions = [p.resolution_action for p in precedents]
+        prec_actions = [p.resolution_action.lower().strip() for p in precedents]
         prec_families = [get_action_family(a) for a in prec_actions]
 
         # Agreement evaluation
@@ -78,10 +81,11 @@ class DecisionService:
 
         # Guardrails evaluation
         similarity_passed = (top1_similarity >= SIMILARITY_THRESHOLD)
-        is_escalation = (primary_action.lower() == "escalation") or any(a.lower() == "escalation" for a in prec_actions)
+        is_escalation = (primary_action == "escalation") or any(a == "escalation" for a in prec_actions)
         
         # Check redelivery on cancelled order
         redelivery_valid = order_context_service.validate_redelivery_guardrail(order, primary_action)
+        is_cancelled_order = bool(order and order.delivery_status.lower() == "cancelled")
         cancelled_redelivery_blocked = not redelivery_valid
 
         # Validity component for confidence
@@ -98,9 +102,30 @@ class DecisionService:
         )
         confidence_score = round(confidence, 4)
 
+        # Suggested Action Computation (Advisory recommendation based on top-3 precedents)
+        suggested_action: Optional[str] = None
+        if is_escalation:
+            # Case 4: Historical action is escalation
+            suggested_action = "escalation"
+        else:
+            action_counts = Counter(prec_actions)
+            most_common = action_counts.most_common()
+            
+            # Check for a tie between different actions (Case 3)
+            if len(most_common) > 1 and most_common[0][1] == most_common[1][1]:
+                suggested_action = None
+            else:
+                top_candidate = most_common[0][0]
+                # Case 5: Cancelled order + historical redelivery -> guardrail strictly blocks suggesting redelivery
+                if top_candidate == "redelivery" and is_cancelled_order:
+                    suggested_action = None
+                else:
+                    # Case 1 & Case 2: Unanimous agreement or strongest precedent support
+                    suggested_action = top_candidate
+
         # Decision Determination Logic
         decision: str = "HUMAN_REVIEW"
-        selected_action: str = primary_action
+        selected_action: str = "human_review"
         reasoning: str = ""
 
         if not similarity_passed:
@@ -109,12 +134,13 @@ class DecisionService:
             reasoning = f"Low similarity score ({top1_similarity:.2f} < {SIMILARITY_THRESHOLD:.2f}); weak historical precedent match."
         elif is_escalation:
             decision = "HUMAN_REVIEW"
-            selected_action = "escalation"
+            selected_action = "human_review"
             reasoning = "Historical precedent requires escalation to specialized support team."
         elif cancelled_redelivery_blocked:
             decision = "HUMAN_REVIEW"
             selected_action = "human_review"
-            reasoning = f"Guardrail triggered: Order {order.order_id if order else ''} is cancelled. Redelivery is strictly blocked."
+            order_label = f"Order #{order.order_id} " if order else "The order "
+            reasoning = f"Historical precedents suggest redelivery, but redelivery is blocked because {order_label}is cancelled. Human review is required."
         elif not exact_agreement:
             decision = "HUMAN_REVIEW"
             selected_action = "human_review"
@@ -151,6 +177,7 @@ class DecisionService:
             decision=decision,
             confidence_score=confidence_score,
             selected_action=selected_action,
+            suggested_action=suggested_action,
             reasoning=reasoning,
             guardrails=guardrails
         )
@@ -158,3 +185,4 @@ class DecisionService:
 
 # Global singleton instance
 decision_service = DecisionService()
+

@@ -8,6 +8,7 @@ from app.services.order_context_service import order_context_service
 from app.services.decision_service import decision_service
 from app.services.action_service import action_service
 from app.services.reply_service import reply_service
+from app.services.gemini_service import gemini_service
 from app.services.log_service import log_service
 
 __all__ = [
@@ -17,5 +18,7 @@ __all__ = [
     "decision_service",
     "action_service",
     "reply_service",
+    "gemini_service",
     "log_service"
 ]
+

@@ -58,6 +58,7 @@ class EvaluationResult(BaseModel):
     decision: str  # "AUTO_RESOLVE" | "HUMAN_REVIEW"
     confidence_score: float
     selected_action: str
+    suggested_action: Optional[str] = None
     reasoning: str
     guardrails: GuardrailResults
 
@@ -77,6 +78,7 @@ class DraftReply(BaseModel):
     subject: str
     body: str
     explanation: str
+    generation_source: Optional[str] = "fallback"  # "gemini" | "fallback"
 
 
 # --- Consolidated API Response Models ---
@@ -100,6 +102,7 @@ class TicketListItem(BaseModel):
     decision: str
     confidence_score: float
     selected_action: str
+    suggested_action: Optional[str] = None
     delivery_status: Optional[str] = None
 
 
@@ -110,6 +113,8 @@ class DecisionLogEntry(BaseModel):
     decision: str
     confidence_score: float
     selected_action: str
+    suggested_action: Optional[str] = None
     reasoning: str
     top_precedent_ids: List[str]
     simulated_action_status: str
+
