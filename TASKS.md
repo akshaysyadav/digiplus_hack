@@ -1,25 +1,26 @@
 # Zepto Support Ticket Manager — Task Tracker
 
-> **Project Status**: Initial Structure & Planning Stage  
-> All items are currently marked as `[ ] TODO`. Do NOT mark tasks as complete until implemented and verified.
+> **Project Status**: Backend Implementation & Testing Completed  
+> Backend REST API ready and verified against all 30 test tickets and unit test suites.
 
 ---
 
 ## 1. Backend (`backend/`)
 
-- [ ] Inspect CSV datasets (`resolved_tickets.csv`, `new_tickets.csv`, `orders_context.csv`) and define Pydantic models.
-- [ ] Implement `data_service.py` to load and parse CSV datasets safely.
-- [ ] Implement `similarity_service.py` using TF-IDF + cosine similarity to search top-3 past precedents.
-- [ ] Implement `order_context_service.py` to fetch order details and validate order status / amounts.
-- [ ] Implement `decision_service.py` to evaluate confidence threshold, precedent action agreement, and business rules.
-- [ ] Implement `action_service.py` to simulate resolution actions (refund, redelivery, coupon, etc.).
-- [ ] Implement `reply_service.py` to draft customer response and generate decision explanations.
-- [ ] Create FastAPI routes in `app/api/routes/` for:
-  - `GET /api/tickets` (list incoming tickets)
-  - `GET /api/tickets/{ticket_id}` (ticket details & context)
-  - `POST /api/tickets/{ticket_id}/evaluate` (run similarity, business rules, decision, and draft reply)
-  - `GET /api/decisions` (retrieve logged decisions)
-- [ ] Implement decision logging to persist decisions and explanations.
+- [x] Inspect CSV datasets (`resolved_tickets.csv`, `new_tickets.csv`, `orders_context.csv`) and define Pydantic models.
+- [x] Implement `data_service.py` to load and parse CSV datasets safely.
+- [x] Implement `similarity_service.py` using TF-IDF + cosine similarity to search top-3 past precedents.
+- [x] Implement `order_context_service.py` to fetch order details and validate order status / amounts.
+- [x] Implement `decision_service.py` to evaluate confidence threshold, precedent action agreement, and business rules.
+- [x] Implement `action_service.py` to simulate resolution actions (refund, redelivery, coupon, etc.).
+- [x] Implement `reply_service.py` to draft customer response and generate decision explanations.
+- [x] Create FastAPI routes in `app/api/routes/` for:
+  - [x] `GET /api/tickets` (list incoming tickets with lane filter)
+  - [x] `GET /api/tickets/{ticket_id}` (ticket details & context)
+  - [x] `POST /api/tickets/{ticket_id}/evaluate` (run similarity, business rules, decision, and draft reply)
+  - [x] `POST /api/tickets/{ticket_id}/resolve` (execute / approve simulated action)
+  - [x] `GET /api/decisions` (retrieve logged decisions)
+- [x] Implement decision logging to persist decisions and explanations.
 
 ---
 
@@ -45,7 +46,7 @@
 
 ## 3. Integration (`Integration`)
 
-- [ ] Finalize request/response schemas between Frontend and Backend in `API_CONTRACT.md`.
+- [x] Finalize request/response schemas between Frontend and Backend in `API_CONTRACT.md`.
 - [ ] Connect Frontend services to FastAPI endpoints.
 - [ ] Verify end-to-end flow from receiving a ticket to rendering decision lanes.
 - [ ] Verify error handling and fallback display when API is offline or returning errors.
@@ -54,13 +55,13 @@
 
 ## 4. Testing (`Testing`)
 
-- [ ] Write unit tests for `similarity_service.py` top-3 precedent matching.
-- [ ] Write unit tests for `decision_service.py` business rules:
-  - [ ] Test weak similarity -> Human Review
-  - [ ] Test precedent action disagreement -> Human Review
-  - [ ] Test cancelled order -> No Redelivery
-  - [ ] Test refund capped by order value
-- [ ] Run backend automated tests via `pytest`.
+- [x] Write unit tests for `similarity_service.py` top-3 precedent matching.
+- [x] Write unit tests for `decision_service.py` business rules:
+  - [x] Test weak similarity -> Human Review
+  - [x] Test precedent action disagreement -> Human Review
+  - [x] Test cancelled order -> No Redelivery
+  - [x] Test refund capped by order value
+- [x] Run backend automated tests via `pytest` (13 passed).
 - [ ] Perform manual frontend walkthrough for demo scenarios.
 
 ---

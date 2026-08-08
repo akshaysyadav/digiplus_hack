@@ -1,7 +1,7 @@
 """
-Application Configuration & Settings Placeholder
+Application Configuration & Settings
 
-Defines path constants, similarity thresholds, and configuration settings.
+Defines dataset paths, similarity thresholds, and configuration constants.
 """
 
 from pathlib import Path
@@ -10,17 +10,25 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR.parent / "data" / "sample_data"
 
-# Dataset Paths in data/sample_data/
-RESOLVED_TICKETS_CSV = DATA_DIR / "resolved_tickets.csv"
-NEW_TICKETS_CSV = DATA_DIR / "new_tickets.csv"
-ORDERS_CONTEXT_CSV = DATA_DIR / "orders_context.csv"
+# Fallback paths for Windows short filenames vs long filenames
+def get_dataset_file(pattern: str, fallback_name: str) -> Path:
+    matches = list(DATA_DIR.glob(pattern))
+    if matches:
+        return matches[0]
+    return DATA_DIR / fallback_name
 
-# Alternative 8.3 short filenames fallback if needed
-RESOLVED_TICKETS_SHORT_CSV = DATA_DIR / "RESOLV~1.CSV"
-NEW_TICKETS_SHORT_CSV = DATA_DIR / "NEW_TI~1.CSV"
-ORDERS_CONTEXT_SHORT_CSV = DATA_DIR / "ORDERS~1.CSV"
+RESOLVED_TICKETS_CSV = get_dataset_file("*RESOLV*", "resolved_tickets.csv")
+NEW_TICKETS_CSV = get_dataset_file("*NEW_TI*", "new_tickets.csv")
+ORDERS_CONTEXT_CSV = get_dataset_file("*ORDERS*", "orders_context.csv")
 
-# Business & Similarity Thresholds (Placeholders)
-SIMILARITY_THRESHOLD_HIGH = 0.75  # High precedent confidence
-TOP_K_PRECEDENTS = 3              # Top 3 historical precedents
+# Evaluation Thresholds & Weights
+SIMILARITY_THRESHOLD = 0.65  # Safety gate for out-of-distribution tickets
+TOP_K_PRECEDENTS = 3         # Precedent retrieval count
 
+# Confidence Formula Weights (sum = 1.00)
+WEIGHT_SIMILARITY = 0.60
+WEIGHT_AGREEMENT = 0.30
+WEIGHT_VALIDITY = 0.10
+
+# Fixed simulated policy values
+COUPON_AMOUNT_INR = 50

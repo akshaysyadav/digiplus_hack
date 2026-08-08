@@ -1,29 +1,42 @@
 """
-Order Context & Guardrails Service Placeholder
+Order Context & Guardrails Service
 
-Future Responsibility:
-- Matching incoming tickets to order records in `orders_context.csv`
-- Enforcing business guardrails:
-  1. Cancelled orders CANNOT trigger redelivery
-  2. Refund amounts CANNOT exceed total order value
-  3. Validating item availability and order status
-
-TO BE IMPLEMENTED BY BACKEND DEVELOPER
+Responsible for:
+- Fetching order context for tickets
+- Validating business guardrails:
+  1. Cancelled Order Redelivery Block: A cancelled order must never trigger redelivery.
+  2. Refund Amount Cap: Refund amount must never exceed the order value.
 """
 
+from typing import Optional, Tuple
+from app.models.schemas import OrderContext
+from app.services.data_service import data_service
+
+
 class OrderContextService:
-    def __init__(self):
-        pass
+    def get_order(self, order_id: str) -> Optional[OrderContext]:
+        """Fetches order context for an order_id."""
+        return data_service.get_order_context(order_id)
 
-    def get_order_context(self, order_id: str):
-        """Fetch order details for a given order_id."""
-        pass
+    def validate_redelivery_guardrail(self, order: Optional[OrderContext], proposed_action: str) -> bool:
+        """
+        Guardrail: If order is cancelled and proposed action is redelivery, returns False (blocked).
+        Returns True if valid.
+        """
+        if order is None:
+            return True
+        if order.delivery_status.lower() == "cancelled" and proposed_action.lower() == "redelivery":
+            return False
+        return True
 
-    def validate_action_against_order(self, order_context: dict, proposed_action: str, proposed_refund_amount: float = 0.0) -> bool:
+    def cap_refund_amount(self, order: Optional[OrderContext], proposed_amount: Optional[int]) -> Optional[int]:
         """
-        Validates business rules:
-        - Check if order is cancelled before redelivery
-        - Check if proposed refund is <= order total value
-        Returns (is_valid: bool, violation_reason: str)
+        Guardrail: Capping refund amount to not exceed order value.
         """
-        pass
+        if proposed_amount is None or order is None:
+            return proposed_amount
+        return min(proposed_amount, order.value_inr)
+
+
+# Global singleton instance
+order_context_service = OrderContextService()
