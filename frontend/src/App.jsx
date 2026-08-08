@@ -1,33 +1,118 @@
-/**
- * Zepto Support Ticket Manager — Root Application Shell
- * Placeholder setup for Developer 2 (Frontend)
- */
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { DashboardLayout } from './layouts/DashboardLayout';
+import { TicketLane } from './components/TicketLane';
+import { TicketDetail } from './components/TicketDetail';
+import { useTickets } from './hooks/useTickets';
+import { getTicket } from './services/api';
 
 function App() {
-  return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      <header style={{ borderBottom: '1px solid #eaeaea', paddingBottom: '1rem', marginBottom: '2rem' }}>
-        <h1 style={{ color: '#800080', margin: 0 }}>Zepto Support Ticket Manager</h1>
-        <p style={{ color: '#666', margin: '0.5rem 0 0 0' }}>
-          DigiPlus IT Agentic AI Hackathon — Problem Statement Q4
-        </p>
-      </header>
+  const {
+    autoResolvedTickets,
+    humanReviewTickets,
+    loading,
+    error,
+    searchQuery,
+    setSearchQuery,
+    selectedTicket,
+    setSelectedTicket,
+    stats,
+    systemOnline,
+    refreshTickets,
+  } = useTickets();
 
-      <main>
-        <div style={{ background: '#f9f9f9', border: '1px border #e0e0e0', borderRadius: '8px', padding: '1.5rem' }}>
-          <h2>Project Initial Setup Complete</h2>
-          <p>
-            The project structure has been initialized for <strong>Developer 1 (Backend)</strong> and <strong>Developer 2 (Frontend)</strong>.
-          </p>
-          <ul style={{ lineHeight: '1.8' }}>
-            <li><strong>Auto-Resolved Lane</strong>: Pending UI implementation</li>
-            <li><strong>Needs-Human Lane</strong>: Pending UI implementation</li>
-            <li><strong>Ticket Detail & Precedents View</strong>: Pending UI implementation</li>
-          </ul>
+  const [detailTicket, setDetailTicket] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+
+  const loadDetail = useCallback(async (ticketId) => {
+    if (!ticketId) {
+      setDetailTicket(null);
+      return;
+    }
+    setDetailLoading(true);
+    setDetailError('');
+    try {
+      const ticket = await getTicket(ticketId);
+      setDetailTicket(ticket);
+    } catch (err) {
+      setDetailError(err.message || 'Unable to load ticket details.');
+      setDetailTicket(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedTicket?.ticket_id) {
+      loadDetail(selectedTicket.ticket_id);
+    } else {
+      setDetailTicket(null);
+    }
+  }, [selectedTicket, loadDetail]);
+
+  return (
+    <DashboardLayout stats={stats} systemOnline={systemOnline}>
+      <div className="controls-bar">
+        <label className="search-box" aria-label="Search tickets">
+          <span className="search-icon" aria-hidden="true">⌕</span>
+          <input
+            className="search-input"
+            type="search"
+            placeholder="Search ticket, order, or issue…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </label>
+      </div>
+
+      {loading ? (
+        <div className="state-panel">
+          <div className="loading-grid">
+            <div className="skeleton-block skeleton-lane" />
+            <div className="skeleton-block skeleton-lane" />
+          </div>
         </div>
-      </main>
-    </div>
+      ) : error ? (
+        <div className="state-panel">
+          <div className="state-card error-state">
+            <strong>Unable to load tickets.</strong>
+            <p>{error}</p>
+            <p className="error-hint">
+              Backend connection unavailable. Make sure FastAPI is running on localhost:8000.
+            </p>
+            <button type="button" className="retry-button" onClick={refreshTickets}>
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <section className="dashboard-grid" aria-label="Ticket board">
+            <TicketLane
+              title="AUTO-RESOLVED"
+              type="auto_resolve"
+              tickets={autoResolvedTickets}
+              selectedTicket={selectedTicket}
+              onSelectTicket={setSelectedTicket}
+            />
+            <TicketLane
+              title="NEEDS HUMAN"
+              type="human_review"
+              tickets={humanReviewTickets}
+              selectedTicket={selectedTicket}
+              onSelectTicket={setSelectedTicket}
+            />
+          </section>
+
+          <TicketDetail
+            ticket={detailTicket}
+            loading={detailLoading}
+            error={detailError}
+            onRetry={() => selectedTicket && loadDetail(selectedTicket.ticket_id)}
+          />
+        </>
+      )}
+    </DashboardLayout>
   );
 }
 
