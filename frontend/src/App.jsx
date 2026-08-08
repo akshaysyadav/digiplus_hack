@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { TicketLane } from './components/TicketLane';
 import { TicketDetail } from './components/TicketDetail';
+import { SimulateTicketModal } from './components/SimulateTicketModal';
 import { useTickets } from './hooks/useTickets';
 import { getTicket } from './services/api';
 
@@ -23,6 +24,7 @@ function App() {
   const [detailTicket, setDetailTicket] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [isSimulateOpen, setIsSimulateOpen] = useState(false);
 
   const loadDetail = useCallback(async (ticketId) => {
     if (!ticketId) {
@@ -50,8 +52,20 @@ function App() {
     }
   }, [selectedTicket, loadDetail]);
 
+  const handleTicketCreated = async (createdTicket) => {
+    await refreshTickets();
+    if (createdTicket) {
+      setSelectedTicket(createdTicket);
+      setDetailTicket(createdTicket);
+    }
+  };
+
   return (
-    <DashboardLayout stats={stats} systemOnline={systemOnline}>
+    <DashboardLayout
+      stats={stats}
+      systemOnline={systemOnline}
+      onOpenSimulate={() => setIsSimulateOpen(true)}
+    >
       <div className="controls-bar">
         <label className="search-box" aria-label="Search tickets">
           <span className="search-icon" aria-hidden="true">⌕</span>
@@ -63,6 +77,13 @@ function App() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </label>
+        <button
+          type="button"
+          className="simulate-ticket-btn"
+          onClick={() => setIsSimulateOpen(true)}
+        >
+          + Simulate New Ticket
+        </button>
       </div>
 
       {loading ? (
@@ -112,8 +133,15 @@ function App() {
           />
         </>
       )}
+
+      <SimulateTicketModal
+        isOpen={isSimulateOpen}
+        onClose={() => setIsSimulateOpen(false)}
+        onTicketCreated={handleTicketCreated}
+      />
     </DashboardLayout>
   );
 }
 
 export default App;
+

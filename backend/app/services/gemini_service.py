@@ -30,7 +30,7 @@ class GeminiService:
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
-        timeout_seconds: float = 6.0
+        timeout_seconds: float = 2.5
     ):
         self.api_key = api_key if api_key is not None else GEMINI_API_KEY
         self.model = model or GEMINI_MODEL or "gemini-1.5-flash"

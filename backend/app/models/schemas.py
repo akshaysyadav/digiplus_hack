@@ -42,6 +42,12 @@ class RawNewTicket(BaseModel):
     description: str
 
 
+class SimulateTicketRequest(BaseModel):
+    description: str
+    order_id: str
+
+
+
 # --- Evaluation & Guardrails Models ---
 
 class GuardrailResults(BaseModel):

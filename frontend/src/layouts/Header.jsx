@@ -1,6 +1,6 @@
 import React from 'react';
 
-export function Header({ stats, systemOnline }) {
+export function Header({ stats, systemOnline, onOpenSimulate }) {
   return (
     <header className="app-header">
       <div className="header-inner">
@@ -13,6 +13,16 @@ export function Header({ stats, systemOnline }) {
         </div>
 
         <div className="header-right">
+          {onOpenSimulate && (
+            <button
+              type="button"
+              className="simulate-header-btn"
+              onClick={onOpenSimulate}
+            >
+              + Simulate Ticket
+            </button>
+          )}
+
           <div className={`system-status ${systemOnline ? 'online' : 'offline'}`}>
             <span className="status-dot" />
             {systemOnline ? 'System Online' : 'System Offline'}
@@ -39,3 +49,4 @@ export function Header({ stats, systemOnline }) {
     </header>
   );
 }
+

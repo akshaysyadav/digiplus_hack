@@ -12,10 +12,13 @@
 | :--- | :--- | :--- |
 | `GET` | `/api/health` | Service health status and dataset readiness |
 | `GET` | `/api/tickets` | List incoming tickets with decision lanes (supports `?lane=auto_resolve` or `?lane=human_review`) |
+| `POST` | `/api/tickets/simulate` | **(NEW)** Ingest and evaluate a simulated customer ticket in real time |
 | `GET` | `/api/tickets/{ticket_id}` | Full ticket detail with order context, top-3 precedents, evaluation, simulated action, and draft reply |
 | `POST` | `/api/tickets/{ticket_id}/evaluate` | Run/re-evaluate ticket through decision pipeline and record audit log |
 | `POST` | `/api/tickets/{ticket_id}/resolve` | Execute / confirm simulated resolution action |
+| `GET` | `/api/orders` | **(NEW)** List verified order contexts for ticket simulation selection |
 | `GET` | `/api/decisions` | Retrieve decision audit history log |
+
 
 ---
 
@@ -69,11 +72,99 @@
 
 ---
 
-### 3. Get Ticket Details & 4. Evaluate Ticket
+### 3. Simulate New Ticket (Real-Time Ingestion & Evaluation)
+* **Endpoint**: `POST /api/tickets/simulate`
+* **Description**: Accepts a new customer issue and verified `order_id`, creates an in-memory ticket (e.g. `SIM-001`), and immediately runs it through the complete decision pipeline.
+* **Request Body `application/json`**:
+```json
+{
+  "description": "milk packet missing from my order",
+  "order_id": "ORD-9905"
+}
+```
+* **Response `200 OK`**:
+```json
+{
+  "ticket_id": "SIM-001",
+  "created_at": "2026-08-08T12:00:00.000000+00:00",
+  "description": "milk packet missing from my order",
+  "order": {
+    "order_id": "ORD-9905",
+    "items": 1,
+    "value_inr": 412,
+    "delivery_time_min": 41,
+    "delivery_status": "delivered"
+  },
+  "precedents": [
+    {
+      "precedent_id": "H-1000",
+      "category": "missing_item",
+      "description": "milk packet missing from my order",
+      "resolution_action": "redelivery",
+      "resolution_note": "missing item re-sent",
+      "similarity_score": 1.0,
+      "csat": 5
+    },
+    {
+      "precedent_id": "H-1007",
+      "category": "missing_item",
+      "description": "milk packet missing from my order",
+      "resolution_action": "redelivery",
+      "resolution_note": "missing item re-sent",
+      "similarity_score": 1.0,
+      "csat": 4
+    },
+    {
+      "precedent_id": "H-1038",
+      "category": "missing_item",
+      "description": "milk packet missing from my order",
+      "resolution_action": "redelivery",
+      "resolution_note": "missing item re-sent",
+      "similarity_score": 1.0,
+      "csat": 3
+    }
+  ],
+  "evaluation": {
+    "similarity_score": 1.0,
+    "exact_action_agreement": true,
+    "action_family_agreement": true,
+    "decision": "AUTO_RESOLVE",
+    "confidence_score": 1.0,
+    "selected_action": "redelivery",
+    "suggested_action": "redelivery",
+    "reasoning": "High similarity (1.00) with unanimous precedent agreement (3/3: redelivery). All order context guardrails passed.",
+    "guardrails": {
+      "similarity_threshold_passed": true,
+      "cancelled_redelivery_blocked": false,
+      "refund_cap_enforced": false,
+      "escalation_precedent_detected": false
+    }
+  },
+  "simulated_action": {
+    "action": "redelivery",
+    "amount_inr": null,
+    "status": "SIMULATED_SUCCESS",
+    "note": "Simulated dispatch: Replacement items scheduled for immediate redelivery.",
+    "is_simulated": true
+  },
+  "draft_reply": {
+    "recipient": "Customer",
+    "subject": "Your replacement items for Order #ORD-9905 are on their way",
+    "body": "Hi there, we sincerely apologize for the issue ('milk packet missing from my order') with your order #ORD-9905. We have arranged an immediate priority redelivery at no extra cost to you. Our delivery partner will be at your doorstep shortly.",
+    "explanation": "Auto-resolved via REDELIVERY based on unanimous historical precedent agreement (3/3). Order #ORD-9905 is active/delivered, satisfying all safety guardrails.",
+    "generation_source": "gemini"
+  }
+}
+```
+
+---
+
+### 4. Get Ticket Details & 5. Evaluate Ticket
 * **Endpoints**: 
   * `GET /api/tickets/{ticket_id}`
   * `POST /api/tickets/{ticket_id}/evaluate`
 * **Response `200 OK` (Auto-Resolve Example — N-005)**:
+
 ```json
 {
   "ticket_id": "N-005",
@@ -196,7 +287,7 @@
 
 ---
 
-### 5. Resolve Ticket Action
+### 6. Resolve Ticket Action
 * **Endpoint**: `POST /api/tickets/{ticket_id}/resolve`
 * **Response `200 OK`**:
 ```json
@@ -211,7 +302,38 @@
 
 ---
 
-### 6. Get Decision Audit Log
+### 7. List Verified Orders
+* **Endpoint**: `GET /api/orders`
+* **Response `200 OK`**:
+```json
+[
+  {
+    "order_id": "ORD-9900",
+    "items": 3,
+    "value_inr": 426,
+    "delivery_time_min": 14,
+    "delivery_status": "delivered"
+  },
+  {
+    "order_id": "ORD-9902",
+    "items": 5,
+    "value_inr": 999,
+    "delivery_time_min": 42,
+    "delivery_status": "cancelled"
+  },
+  {
+    "order_id": "ORD-9905",
+    "items": 1,
+    "value_inr": 412,
+    "delivery_time_min": 41,
+    "delivery_status": "delivered"
+  }
+]
+```
+
+---
+
+### 8. Get Decision Audit Log
 * **Endpoint**: `GET /api/decisions`
 * **Response `200 OK`**:
 ```json

@@ -3,10 +3,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import {
-  getAutoResolveTickets,
-  getHumanReviewTickets,
-} from '../services/api';
+import { getTickets } from '../services/api';
 
 export function useTickets() {
   const [autoResolvedTickets, setAutoResolvedTickets] = useState([]);
@@ -22,16 +19,14 @@ export function useTickets() {
       setLoading(true);
       setError(null);
 
-      const [auto, human] = await Promise.all([
-        getAutoResolveTickets(),
-        getHumanReviewTickets(),
-      ]);
+      const all = await getTickets('all');
+      const auto = all.filter((t) => t.decision === 'AUTO_RESOLVE');
+      const human = all.filter((t) => t.decision === 'HUMAN_REVIEW');
 
       setSystemOnline(true);
       setAutoResolvedTickets(auto);
       setHumanReviewTickets(human);
 
-      const all = [...auto, ...human];
       setSelectedTicket((prev) => {
         if (prev && all.some((t) => t.ticket_id === prev.ticket_id)) return prev;
         return all[0] || null;
@@ -45,6 +40,7 @@ export function useTickets() {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadTickets();

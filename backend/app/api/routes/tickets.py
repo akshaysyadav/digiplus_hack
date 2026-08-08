@@ -13,7 +13,8 @@ from typing import List, Optional
 from app.models.schemas import (
     TicketDetailResponse,
     TicketListItem,
-    SimulatedAction
+    SimulatedAction,
+    SimulateTicketRequest
 )
 from app.services import (
     data_service,
@@ -82,6 +83,35 @@ def process_ticket(ticket_dict: dict) -> TicketDetailResponse:
     return response
 
 
+def evaluate_for_list_item(ticket_dict: dict) -> TicketListItem:
+    """
+    Fast decision evaluation for list views (omits heavyweight LLM draft generation):
+    1. Lookup linked order context
+    2. Retrieve top-3 historical precedents via TF-IDF cosine similarity
+    3. Evaluate decision, agreement, confidence, and guardrails
+    """
+    ticket_id = str(ticket_dict["ticket_id"])
+    created_at = str(ticket_dict.get("created_at", ""))
+    order_id = str(ticket_dict.get("order_id", ""))
+    description = str(ticket_dict.get("description", ""))
+
+    order = order_context_service.get_order(order_id)
+    precedents = similarity_service.get_top_k_precedents(description, k=3)
+    evaluation = decision_service.evaluate(description, precedents, order)
+
+    return TicketListItem(
+        ticket_id=ticket_id,
+        created_at=created_at,
+        order_id=order_id,
+        description=description,
+        decision=evaluation.decision,
+        confidence_score=evaluation.confidence_score,
+        selected_action=evaluation.selected_action,
+        suggested_action=evaluation.suggested_action,
+        delivery_status=order.delivery_status if order else None
+    )
+
+
 @router.get("", response_model=List[TicketListItem])
 def list_tickets(lane: Optional[str] = Query(None, description="Filter by lane: 'all', 'auto_resolve', 'human_review'")):
     """
@@ -102,31 +132,20 @@ def list_tickets(lane: Optional[str] = Query(None, description="Filter by lane: 
     ticket_items: List[TicketListItem] = []
 
     for raw in all_raw_tickets:
-        detail = process_ticket(raw)
+        item = evaluate_for_list_item(raw)
         
         # Check lane filter
         if lane:
             filter_lane = lane.lower().strip()
-            if filter_lane in ["auto_resolve", "autoresolve", "auto"] and detail.evaluation.decision != "AUTO_RESOLVE":
+            if filter_lane in ["auto_resolve", "autoresolve", "auto"] and item.decision != "AUTO_RESOLVE":
                 continue
-            elif filter_lane in ["human_review", "humanreview", "needs_human", "human"] and detail.evaluation.decision != "HUMAN_REVIEW":
+            elif filter_lane in ["human_review", "humanreview", "needs_human", "human"] and item.decision != "HUMAN_REVIEW":
                 continue
 
-        ticket_items.append(
-            TicketListItem(
-                ticket_id=detail.ticket_id,
-                created_at=detail.created_at,
-                order_id=detail.order.order_id if detail.order else raw.get("order_id", ""),
-                description=detail.description,
-                decision=detail.evaluation.decision,
-                confidence_score=detail.evaluation.confidence_score,
-                selected_action=detail.evaluation.selected_action,
-                suggested_action=detail.evaluation.suggested_action,
-                delivery_status=detail.order.delivery_status if detail.order else None
-            )
-        )
+        ticket_items.append(item)
 
     return ticket_items
+
 
 
 @router.get("/{ticket_id}", response_model=TicketDetailResponse)
@@ -152,6 +171,46 @@ def evaluate_ticket(ticket_id: str):
     return process_ticket(raw)
 
 
+@router.post("/simulate", response_model=TicketDetailResponse)
+def simulate_ticket(request: SimulateTicketRequest):
+    """
+    Simulates ingesting a new customer ticket in real time:
+    1. Validates non-empty description
+    2. Validates order_id exists in verified order context dataset (orders_context.csv)
+    3. Generates unique in-memory simulated ticket ID (e.g. SIM-001)
+    4. Evaluates end-to-end against 300 historical precedents using existing decision engine
+    5. Drafts grounded customer reply & agent explanation (Gemini AI with deterministic fallback)
+    6. Records decision audit log and returns full ticket detail
+    """
+    description = (request.description or "").strip()
+    if not description:
+        raise HTTPException(
+            status_code=400,
+            detail="Ticket description cannot be empty."
+        )
+
+    order_id = (request.order_id or "").strip()
+    if not order_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Order ID cannot be empty."
+        )
+
+    # Validate that order exists in verified dataset
+    order = order_context_service.get_order(order_id)
+    if not order:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order '{order_id}' not found in order context dataset."
+        )
+
+    # Ingest in-memory simulated ticket
+    simulated_raw = data_service.add_simulated_ticket(description, order_id)
+
+    # Run existing end-to-end evaluation pipeline
+    return process_ticket(simulated_raw)
+
+
 @router.post("/{ticket_id}/resolve", response_model=SimulatedAction)
 def resolve_ticket(ticket_id: str):
     """
@@ -175,3 +234,4 @@ def resolve_ticket(ticket_id: str):
         )
     
     return detail.simulated_action
+

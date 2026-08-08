@@ -125,9 +125,23 @@ export async function resolveTicket(ticketId) {
   return request(`/tickets/${ticketId}/resolve`, { method: 'POST' });
 }
 
+export async function simulateTicket(payload) {
+  const data = await request('/tickets/simulate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return normalizeDetail(data);
+}
+
+export async function getOrders() {
+  const data = await request('/orders');
+  return Array.isArray(data) ? data : [];
+}
+
 export async function getDecisions() {
   const data = await request('/decisions');
   return Array.isArray(data) ? data : data.decisions || [];
 }
 
 export { ApiError, API_BASE };
+
