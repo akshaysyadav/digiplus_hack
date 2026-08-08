@@ -74,8 +74,8 @@ Located in `data/sample_data/`:
 
 ## Tech Stack & Project Organization
 
-* **Frontend**: React application (`frontend/`) — Developer 2 Ownership.
-* **Backend**: FastAPI REST API (`backend/`) — Developer 1 Ownership.
+* **Frontend**: React application (`frontend/`) 
+* **Backend**: FastAPI REST API (`backend/`) 
 * **Documentation**: Architecture specs & decision logs (`docs/`, `PROJECT_CONTEXT.md`, `DECISIONS.md`).
 
 ---
@@ -84,7 +84,7 @@ Located in `data/sample_data/`:
 
 > Note: Project features are currently in the initial project setup phase. 
 
-### Backend Setup (Developer 1)
+### Backend Setup
 ```bash
 cd backend
 python -m venv venv
@@ -93,7 +93,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-### Frontend Setup (Developer 2)
+### Frontend Setup 
 ```bash
 cd frontend
 npm install
@@ -108,14 +108,4 @@ npm run dev
 * **Frontend**: React Dashboard deployed to public web host.
 * **Repository**: Public GitHub Repository.
 
----
 
-## Shared Documentation
-
-* [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md): Project memory, workflow rules, business guardrails.
-* [`TASKS.md`](TASKS.md): Central task tracking board.
-* [`DECISIONS.md`](DECISIONS.md): Architecture decision records (ADR).
-* [`API_CONTRACT.md`](API_CONTRACT.md): API contract specification between Frontend and Backend.
-* [`docs/architecture.md`](docs/architecture.md): Detailed system architecture design.
-* [`docs/decision-flow.md`](docs/decision-flow.md): Conceptual decision flow logic.
-* [`docs/demo-scenarios.md`](docs/demo-scenarios.md): Key demo test scenarios.
